@@ -14,6 +14,8 @@ http://nlp.seas.harvard.edu/annotated-transformer/
 Use `requirements.txt` to install library dependencies with pip:
 
 ```
+conda create -n transformer python=3.9
+conda activate transformer
 pip install -r requirements.txt
 ```
 
