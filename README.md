@@ -44,7 +44,8 @@ jupytext --to ipynb the_annotated_transformer.py
 To produce the html version of the notebook, run:
 
 ```
-jupyter nbconvert --to html the_annotated_transformer.ipynb --no-prompt --template classic
+# using new version of jupyterlab (>=4.1.5)
+jupyter nbconvert --to html the_annotated_transformer.ipynb --no-prompt --template classic --embed-images
 ```
 
 
