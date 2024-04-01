@@ -9,9 +9,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.16.1
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: torch
 #     language: python
-#     name: python3
+#     name: torch
 # ---
 
 # %% [markdown] id="SX7UC-8jTsp7"
@@ -27,6 +27,8 @@
 # <img src="images/aiayn.png" width="70%"/>
 #
 # * *v2024: Xin Xiong*
+#     - Update torch to 1.13.1+cu116
+#     - Remove the test set in dataset Multi30k because of the bug: https://github.com/pytorch/text/issues/2221 
 #
 # * *v2022: Austin Huang, Suraj Subramanian, Jonathan Sum, Khalid Almubarak,
 #    and Stella Biderman.*
@@ -118,6 +120,8 @@ from torch.nn.functional import log_softmax, pad
 import math
 import copy
 import time
+import sys
+import subprocess
 from torch.optim.lr_scheduler import LambdaLR
 import pandas as pd
 import altair as alt
@@ -132,11 +136,13 @@ from torch.utils.data.distributed import DistributedSampler
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
-
+python_path = '/home/phyxiongx/.conda/envs/torch/bin/python'
+sys.path.append(python_path)
 
 # Set to False to skip notebook execution (e.g. for debugging)
 warnings.filterwarnings("ignore")
 RUN_EXAMPLES = True
+
 
 
 # %%
@@ -1419,13 +1425,17 @@ def load_tokenizers():
     try:
         spacy_de = spacy.load("de_core_news_sm")
     except IOError:
-        os.system("python -m spacy download de_core_news_sm")
+        command = [python_path, '-m', 'spacy', 'download', 'de_core_news_sm']
+        # os.system("python -m spacy download de_core_news_sm")
+        subprocess.run(command, check=True)
         spacy_de = spacy.load("de_core_news_sm")
 
     try:
         spacy_en = spacy.load("en_core_web_sm")
     except IOError:
-        os.system("python -m spacy download en_core_web_sm")
+        command = [python_path, '-m', 'spacy', 'download', 'en_core_web_sm']
+        # os.system("python -m spacy download en_core_web_sm")
+        subprocess.run(command, check=True)
         spacy_en = spacy.load("en_core_web_sm")
 
     return spacy_de, spacy_en
@@ -1649,7 +1659,7 @@ def train_worker(
     pad_idx = vocab_tgt["<blank>"]
     d_model = 512
     model = make_model(len(vocab_src), len(vocab_tgt), N=6)
-    # model.cuda(gpu)
+    model.cuda(gpu)
     module = model
     is_main_process = True
     if is_distributed:
@@ -2149,3 +2159,5 @@ show_example(viz_decoder_src)
 #  Cheers,
 #  Sasha Rush, Austin Huang, Suraj Subramanian, Jonathan Sum, Khalid Almubarak,
 #  Stella Biderman
+
+# %%

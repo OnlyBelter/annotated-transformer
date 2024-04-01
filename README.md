@@ -30,20 +30,23 @@ The python script is committed contains all the cell content and can be used to 
 
 Prior to using this repo, make sure jupytext is installed by following the [installation instructions here](https://github.com/mwouts/jupytext/blob/main/docs/install.md).
 
-To produce the `.ipynb` notebook file using the markdown source, run (under the hood, the `notebook` build target simply runs `jupytext --to ipynb the_annotated_transformer.py`):
+1. After editing `AnnotatedTransformer.ipynb`, convert it to `.py` file:
+```
+jupytext --output the_annotated_transformer.py AnnotatedTransformer.ipynb
+```
+
+2. To produce the `.ipynb` notebook file using the markdown source (or `.py` file):
 
 ```
-make notebook
+jupytext --to ipynb the_annotated_transformer.py
 ```
 
 To produce the html version of the notebook, run:
 
 ```
-make html
+jupyter nbconvert --to html the_annotated_transformer.ipynb --no-prompt
 ```
 
-`make html` is just a shortcut for for generating the notebook with `jupytext --to ipynb the_annotated_transformer.py` followed by using the jupyter nbconvert command to produce html using `jupyter nbconvert --to html the_annotated_transformer.ipynb`                             
- 
 
 # Formatting and Linting
 

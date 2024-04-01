@@ -7,13 +7,14 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.13.0
+#       jupytext_version: 1.16.1
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: torch
 #     language: python
-#     name: python3
+#     name: torch
 # ---
-# %% [markdown] id="SX7UC-8jTsp7" tags=[]
+
+# %% [markdown] id="SX7UC-8jTsp7"
 #
 # <center><h1>The Annotated Transformer</h1> </center>
 #
@@ -24,6 +25,10 @@
 # </center>
 #
 # <img src="images/aiayn.png" width="70%"/>
+#
+# * *v2024: Xin Xiong*
+#     - Update torch to 1.13.1+cu116
+#     - Remove the test set in dataset Multi30k because of the bug: https://github.com/pytorch/text/issues/2221 
 #
 # * *v2022: Austin Huang, Suraj Subramanian, Jonathan Sum, Khalid Almubarak,
 #    and Stella Biderman.*
@@ -115,6 +120,8 @@ from torch.nn.functional import log_softmax, pad
 import math
 import copy
 import time
+import sys
+import subprocess
 from torch.optim.lr_scheduler import LambdaLR
 import pandas as pd
 import altair as alt
@@ -129,11 +136,13 @@ from torch.utils.data.distributed import DistributedSampler
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
-
+python_path = '/home/phyxiongx/.conda/envs/torch/bin/python'
+sys.path.append(python_path)
 
 # Set to False to skip notebook execution (e.g. for debugging)
 warnings.filterwarnings("ignore")
 RUN_EXAMPLES = True
+
 
 
 # %%
@@ -234,21 +243,27 @@ class EncoderDecoder(nn.Module):
     """
 
     def __init__(self, encoder, decoder, src_embed, tgt_embed, generator):
+        """
+        tgt_embed: target_embedding? 
+        """
         super(EncoderDecoder, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.src_embed = src_embed
-        self.tgt_embed = tgt_embed
+        self.src_embed = src_embed  # source
+        self.tgt_embed = tgt_embed  # target embedding?
         self.generator = generator
 
     def forward(self, src, tgt, src_mask, tgt_mask):
         "Take in and process masked src and target sequences."
         return self.decode(self.encode(src, src_mask), src_mask, tgt, tgt_mask)
 
-    def encode(self, src, src_mask):
+    def encode(self, src, src_mask):  # encode is different from encoder
         return self.encoder(self.src_embed(src), src_mask)
 
     def decode(self, memory, src_mask, tgt, tgt_mask):
+        """
+        memory:??
+        """
         return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
 
 
@@ -258,9 +273,11 @@ class Generator(nn.Module):
 
     def __init__(self, d_model, vocab):
         super(Generator, self).__init__()
+        # nn.Linear: 
         self.proj = nn.Linear(d_model, vocab)
 
     def forward(self, x):
+        # why use log_softmax?
         return log_softmax(self.proj(x), dim=-1)
 
 
@@ -354,7 +371,7 @@ class SublayerConnection(nn.Module):
 
     def forward(self, x, sublayer):
         "Apply residual connection to any sublayer with the same size."
-        return x + self.dropout(sublayer(self.norm(x)))
+        return x + self.dropout(sublayer(self.norm(x))) # the residual connection is implemented here
 
 
 # %% [markdown] id="ML6oDlEqTsqE"
@@ -371,12 +388,14 @@ class EncoderLayer(nn.Module):
         super(EncoderLayer, self).__init__()
         self.self_attn = self_attn
         self.feed_forward = feed_forward
-        self.sublayer = clones(SublayerConnection(size, dropout), 2)
+        self.sublayer = clones(SublayerConnection(size, dropout), 2) # replicate this layer
         self.size = size
 
     def forward(self, x, mask):
         "Follow Figure 1 (left) for connections."
+        # the first sub-layer: x + norm(attention(x))
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
+        # the second sub-layer: x + feed_forward(x), this x is the output of the first sub-layer
         return self.sublayer[1](x, self.feed_forward)
 
 
@@ -423,8 +442,13 @@ class DecoderLayer(nn.Module):
 
     def forward(self, x, memory, src_mask, tgt_mask):
         "Follow Figure 1 (right) for connections."
+        """
+        x: output embedding
+        memory: the output of the encoder
+        """
         m = memory
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, tgt_mask))
+        # connect the input from the right side (Decoder) and the output from the left side (Encoder)
         x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask))
         return self.sublayer[2](x, self.feed_forward)
 
@@ -594,7 +618,7 @@ class MultiHeadedAttention(nn.Module):
         # We assume d_v always equals d_k
         self.d_k = d_model // h
         self.h = h
-        self.linears = clones(nn.Linear(d_model, d_model), 4)
+        self.linears = clones(nn.Linear(d_model, d_model), 4) # D X D
         self.attn = None
         self.dropout = nn.Dropout(p=dropout)
 
@@ -632,7 +656,7 @@ class MultiHeadedAttention(nn.Module):
 # ### Applications of Attention in our Model
 #
 # The Transformer uses multi-head attention in three different ways:
-# 1) In "encoder-decoder attention" layers, the queries come from the
+# 1) In "encoder-decoder attention" layers, <span style="color:red;">the queries</span> come from the
 # previous decoder layer, and the memory keys and values come from the
 # output of the encoder.  This allows every position in the decoder to
 # attend over all positions in the input sequence.  This mimics the
@@ -1015,7 +1039,7 @@ def run_epoch(
 # Each training batch contained a set of sentence pairs containing
 # approximately 25000 source tokens and 25000 target tokens.
 
-# %% [markdown] id="F1mTQatiTsqJ" jp-MarkdownHeadingCollapsed=true tags=[]
+# %% [markdown] id="F1mTQatiTsqJ" jp-MarkdownHeadingCollapsed=true
 # ## Hardware and Schedule
 #
 # We trained our models on one machine with 8 NVIDIA P100 GPUs.  For
@@ -1067,7 +1091,7 @@ def rate(step, model_size, factor, warmup):
     )
 
 
-# %% id="l1bnrlnSV8J5" tags=[]
+# %% id="l1bnrlnSV8J5"
 def example_learning_schedule():
     opts = [
         [512, 1, 4000],  # example 1
@@ -1307,7 +1331,7 @@ class SimpleLossCompute:
 # %% [markdown] id="eDAI7ELUTsqL"
 # ## Greedy Decoding
 
-# %% [markdown] id="LFkWakplTsqL" tags=[]
+# %% [markdown] id="LFkWakplTsqL"
 # > This code predicts a translation using greedy decoding for simplicity.
 # %% id="N2UOpnT3bIyU"
 def greedy_decode(model, src, src_mask, max_len, start_symbol):
@@ -1326,7 +1350,7 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
     return ys
 
 
-# %% id="qgIZ2yEtdYwe" tags=[]
+# %% id="qgIZ2yEtdYwe"
 # Train the simple copy task.
 
 
@@ -1373,7 +1397,7 @@ def example_simple_model():
     print(greedy_decode(model, src, src_mask, max_len=max_len, start_symbol=0))
 
 
-# execute_example(example_simple_model)
+execute_example(example_simple_model)
 
 
 # %% [markdown] id="OpuQv2GsTsqL"
@@ -1385,7 +1409,7 @@ def example_simple_model():
 # > system. We also show how to use multi-gpu processing to make it
 # > really fast.
 
-# %% [markdown] id="8y9dpfolTsqL" tags=[]
+# %% [markdown] id="8y9dpfolTsqL"
 # ## Data Loading
 #
 # > We will load the dataset using torchtext and spacy for
@@ -1401,19 +1425,23 @@ def load_tokenizers():
     try:
         spacy_de = spacy.load("de_core_news_sm")
     except IOError:
-        os.system("python -m spacy download de_core_news_sm")
+        command = [python_path, '-m', 'spacy', 'download', 'de_core_news_sm']
+        # os.system("python -m spacy download de_core_news_sm")
+        subprocess.run(command, check=True)
         spacy_de = spacy.load("de_core_news_sm")
 
     try:
         spacy_en = spacy.load("en_core_web_sm")
     except IOError:
-        os.system("python -m spacy download en_core_web_sm")
+        command = [python_path, '-m', 'spacy', 'download', 'en_core_web_sm']
+        # os.system("python -m spacy download en_core_web_sm")
+        subprocess.run(command, check=True)
         spacy_en = spacy.load("en_core_web_sm")
 
     return spacy_de, spacy_en
 
 
-# %% id="t4BszXXJTsqL" tags=[]
+# %% id="t4BszXXJTsqL"
 def tokenize(text, tokenizer):
     return [tok.text for tok in tokenizer.tokenizer(text)]
 
@@ -1423,7 +1451,7 @@ def yield_tokens(data_iter, tokenizer, index):
         yield tokenizer(from_to_tuple[index])
 
 
-# %% id="jU3kVlV5okC-" tags=[]
+# %% id="jU3kVlV5okC-"
 
 
 def build_vocabulary(spacy_de, spacy_en):
@@ -1436,7 +1464,8 @@ def build_vocabulary(spacy_de, spacy_en):
     print("Building German Vocabulary ...")
     train, val, test = datasets.Multi30k(language_pair=("de", "en"))
     vocab_src = build_vocab_from_iterator(
-        yield_tokens(train + val + test, tokenize_de, index=0),
+        # yield_tokens(train + val + test, tokenize_de, index=0),
+        yield_tokens(train + val, tokenize_de, index=0),
         min_freq=2,
         specials=["<s>", "</s>", "<blank>", "<unk>"],
     )
@@ -1444,7 +1473,8 @@ def build_vocabulary(spacy_de, spacy_en):
     print("Building English Vocabulary ...")
     train, val, test = datasets.Multi30k(language_pair=("de", "en"))
     vocab_tgt = build_vocab_from_iterator(
-        yield_tokens(train + val + test, tokenize_en, index=1),
+        # yield_tokens(train + val + test, tokenize_en, index=1),
+        yield_tokens(train + val, tokenize_en, index=1),
         min_freq=2,
         specials=["<s>", "</s>", "<blank>", "<unk>"],
     )
@@ -1484,7 +1514,7 @@ if is_interactive_notebook():
 # %% [markdown] id="kDEj-hCgokC-" tags=[] jp-MarkdownHeadingCollapsed=true
 # ## Iterators
 
-# %% id="wGsIHFgOokC_" tags=[]
+# %% id="wGsIHFgOokC_"
 def collate_batch(
     batch,
     src_pipeline,
@@ -1547,7 +1577,7 @@ def collate_batch(
     return (src, tgt)
 
 
-# %% id="ka2Ce_WIokC_" tags=[]
+# %% id="ka2Ce_WIokC_"
 def create_dataloaders(
     device,
     vocab_src,
@@ -1709,7 +1739,7 @@ def train_worker(
         torch.save(module.state_dict(), file_path)
 
 
-# %% tags=[]
+# %%
 def train_distributed_model(vocab_src, vocab_tgt, spacy_de, spacy_en, config):
     from the_annotated_transformer import train_worker
 
@@ -1798,7 +1828,7 @@ if is_interactive_notebook():
 # > generator. See the [(cite)](https://arxiv.org/abs/1608.05859) for
 # > details. To add this to the model simply do this:
 
-# %% id="tb3j3CYLTsqN" tags=[]
+# %% id="tb3j3CYLTsqN"
 if False:
     model.src_embed[0].lut.weight = model.tgt_embeddings[0].lut.weight
     model.generator.lut.weight = model.tgt_embed[0].lut.weight
@@ -1985,7 +2015,7 @@ def attn_map(attn, layer, head, row_tokens, col_tokens, max_dim=30):
     )
 
 
-# %% tags=[]
+# %%
 def get_encoder(model, layer):
     return model.encoder.layers[layer].self_attn.attn
 
@@ -2030,7 +2060,7 @@ def visualize_layer(model, layer, getter_fn, ntokens, row_tokens, col_tokens):
 # %% [markdown]
 # ## Encoder Self Attention
 
-# %% tags=[]
+# %%
 def viz_encoder_self():
     model, example_data = run_model_example(n_examples=1)
     example = example_data[
@@ -2059,7 +2089,7 @@ show_example(viz_encoder_self)
 # %% [markdown]
 # ## Decoder Self Attention
 
-# %% tags=[]
+# %%
 def viz_decoder_self():
     model, example_data = run_model_example(n_examples=1)
     example = example_data[len(example_data) - 1]
@@ -2091,7 +2121,7 @@ show_example(viz_decoder_self)
 # %% [markdown]
 # ## Decoder Src Attention
 
-# %% tags=[]
+# %%
 def viz_decoder_src():
     model, example_data = run_model_example(n_examples=1)
     example = example_data[len(example_data) - 1]
@@ -2129,3 +2159,5 @@ show_example(viz_decoder_src)
 #  Cheers,
 #  Sasha Rush, Austin Huang, Suraj Subramanian, Jonathan Sum, Khalid Almubarak,
 #  Stella Biderman
+
+# %%
