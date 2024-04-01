@@ -45,7 +45,8 @@ To produce the html version of the notebook, run:
 
 ```
 # using new version of jupyterlab (>=4.1.5)
-jupyter nbconvert --to html the_annotated_transformer.ipynb --no-prompt --template classic --embed-images
+pip install pretty-jupyter
+jupyter nbconvert --to html the_annotated_transformer.ipynb --no-prompt --template pj --embed-images
 ```
 
 

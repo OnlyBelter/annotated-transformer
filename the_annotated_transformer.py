@@ -9,14 +9,19 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.16.1
 #   kernelspec:
-#     display_name: torch
+#     display_name: Python 3 (ipykernel)
 #     language: python
-#     name: torch
+#     name: python3
 # ---
+
+# %% [raw]
+# title: The Annotated Transformer
+# author: Xin Xiong (Reproduced)
+# date: "{{ datetime.now().strftime('%Y-%m-%d %H:%M:%S') }}"
 
 # %% [markdown] id="SX7UC-8jTsp7"
 #
-# <center><h1>The Annotated Transformer</h1> </center>
+# <!-- <center><h1>The Annotated Transformer</h1> </center> -->
 #
 #
 # <center>
@@ -52,7 +57,7 @@
 # [here](https://github.com/harvardnlp/annotated-transformer/).
 
 # %% [markdown] id="RSntDwKhTsp-"
-# <h3> Table of Contents </h3>
+# <!-- <h3> Table of Contents </h3>
 # <ul>
 # <li><a href="#prelims">Prelims</a></li>
 # <li><a href="#background">Background</a></li>
@@ -95,7 +100,7 @@
 # <li><a href="#decoder-src-attention">Decoder Src Attention</a></li>
 # </ul></li>
 # <li><a href="#conclusion">Conclusion</a></li>
-# </ul>
+# </ul> -->
 
 
 # %% [markdown] id="BhmOhn9lTsp8"
