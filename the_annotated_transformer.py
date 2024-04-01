@@ -23,15 +23,20 @@
 # <p><a href="https://arxiv.org/abs/1706.03762">Attention is All You Need
 # </a></p>
 # </center>
-#
+
+
+# %% [markdown]
 # <img src="images/aiayn.png" width="70%"/>
-#
+
+# %% [markdown]
 # * *v2024: Xin Xiong*
 #     - Update torch to 1.13.1+cu116
 #     - Remove the test set in dataset Multi30k because of the bug: https://github.com/pytorch/text/issues/2221 
 #
+#
 # * *v2022: Austin Huang, Suraj Subramanian, Jonathan Sum, Khalid Almubarak,
 #    and Stella Biderman.*
+#    
 # * *[Original](https://nlp.seas.harvard.edu/2018/04/03/attention.html):
 #    [Sasha Rush](http://rush-nlp.com/).*
 #
@@ -45,8 +50,6 @@
 # be a completely usable implementation.
 # Code is available
 # [here](https://github.com/harvardnlp/annotated-transformer/).
-#
-
 
 # %% [markdown] id="RSntDwKhTsp-"
 # <h3> Table of Contents </h3>
